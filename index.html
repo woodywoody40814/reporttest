@@ -1,0 +1,597 @@
+<html><head><base href="https://repair-system-demo.com/" target="_blank">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>報修系統 - Root 特權帳號設置</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.2/dexie.min.js"></script>
+<style>
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f0f0f0;
+  }
+  h1, h2, h3 {
+    color: #2c3e50;
+    text-align: center;
+  }
+  form, .section {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    margin-top: 10px;
+  }
+  input[type="text"], input[type="password"], input[type="email"], select, textarea {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  textarea {
+    height: 100px;
+  }
+  button {
+    background-color: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  button:hover {
+    background-color: #2980b9;
+  }
+  .status {
+    margin-top: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+  }
+  .success {
+    background-color: #2ecc71;
+    color: white;
+  }
+  .error {
+    background-color: #e74c3c;
+    color: white;
+  }
+  #logoutButton {
+    float: right;
+  }
+  .repair-item, .user-item {
+    background-color: #fff;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .hidden {
+    display: none;
+  }
+  #userManagement {
+    margin-top: 20px;
+  }
+  #roleSelection {
+    margin-bottom: 20px;
+  }
+  #registerButton {
+    background-color: #27ae60;
+    margin-left: 10px;
+  }
+  #registerButton:hover {
+    background-color: #2ecc71;
+  }
+  #rootSection {
+    background-color: #f39c12;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+  }
+  #rootSection h2 {
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+  <h1>報修系統</h1>
+  
+  <button id="logoutButton" class="hidden" onclick="logout()">登出</button>
+
+  <div id="authSection">
+    <h2>登入</h2>
+    <form id="loginForm">
+      <label for="loginUsername">用戶名：</label>
+      <input type="text" id="loginUsername" name="username" required>
+      
+      <label for="loginPassword">密碼：</label>
+      <input type="password" id="loginPassword" name="password" required>
+      
+      <button type="submit">登入</button>
+      <button id="registerButton" type="button" onclick="showRegisterForm()">註冊</button>
+    </form>
+    <div id="loginStatus" class="status"></div>
+  </div>
+
+  <div id="registerSection" class="hidden">
+    <h2>註冊新用戶</h2>
+    <form id="registerForm">
+      <label for="registerUsername">用戶名：</label>
+      <input type="text" id="registerUsername" name="username" required>
+      
+      <label for="registerEmail">電子郵件：</label>
+      <input type="email" id="registerEmail" name="email" required>
+      
+      <label for="registerPassword">密碼：</label>
+      <input type="password" id="registerPassword" name="password" required>
+      
+      <button type="submit">註冊</button>
+      <button type="button" onclick="showLoginForm()">返回登入</button>
+    </form>
+    <div id="registerStatus" class="status"></div>
+  </div>
+
+  <div id="userSection" class="hidden">
+    <h2>使用者報修區</h2>
+    <form id="repairForm">
+      <label for="department">部門：</label>
+      <input type="text" id="department" name="department" required>
+      
+      <label for="location">位置：</label>
+      <input type="text" id="location" name="location" required>
+      
+      <label for="category">問題類別：</label>
+      <select id="category" name="category" required>
+        <option value="">請選擇</option>
+        <option value="電腦硬體">電腦硬體</option>
+        <option value="軟體問題">軟體問題</option>
+        <option value="網路問題">網路問題</option>
+        <option value="設備故障">設備故障</option>
+        <option value="其他">其他</option>
+      </select>
+      
+      <label for="description">問題描述：</label>
+      <textarea id="description" name="description" required></textarea>
+      
+      <button type="submit">提交報修</button>
+    </form>
+    
+    <div id="repairStatus" class="status"></div>
+
+    <h3>我的報修列表</h3>
+    <div id="userRepairList"></div>
+  </div>
+
+  <div id="technicianSection" class="hidden">
+    <h2>技術人員處理區</h2>
+    <div id="technicianRepairList"></div>
+  </div>
+
+  <div id="adminSection" class="hidden">
+    <h2>管理員控制台</h2>
+    <div id="roleSelection">
+      <label for="newUserRole">選擇新用戶角色：</label>
+      <select id="newUserRole">
+        <option value="user">一般用戶</option>
+        <option value="technician">技術人員</option>
+        <option value="admin">管理員</option>
+      </select>
+    </div>
+    <form id="adminRegisterForm">
+      <label for="adminRegisterUsername">用戶名：</label>
+      <input type="text" id="adminRegisterUsername" name="username" required>
+      
+      <label for="adminRegisterEmail">電子郵件：</label>
+      <input type="email" id="adminRegisterEmail" name="email" required>
+      
+      <label for="adminRegisterPassword">密碼：</label>
+      <input type="password" id="adminRegisterPassword" name="password" required>
+      
+      <button type="submit">註冊新用戶</button>
+    </form>
+    <div id="adminRegisterStatus" class="status"></div>
+
+    <div id="userManagement">
+      <h3>用戶管理</h3>
+      <div id="userList"></div>
+    </div>
+
+    <h3>所有報修</h3>
+    <div id="adminRepairList"></div>
+  </div>
+
+  <div id="rootSection" class="hidden">
+    <h2>Root 特權帳號控制台</h2>
+    <h3>所有用戶</h3>
+    <div id="rootUserList"></div>
+    <h3>所有報修</h3>
+    <div id="rootRepairList"></div>
+  </div>
+
+<script>
+// 初始化 Dexie 數據庫
+const db = new Dexie('RepairSystemDB');
+db.version(1).stores({
+  users: '++id, username, email, password, role',
+  repairs: '++id, userId, department, location, category, description, status, timestamp, technicianId'
+});
+
+let currentUser = null;
+
+// 創建初始管理員和 root 帳戶（如果不存在）
+async function createInitialAccounts() {
+  const adminUser = await db.users.where('username').equals('admin').first();
+  if (!adminUser) {
+    await db.users.add({
+      username: 'admin',
+      email: 'admin@example.com',
+      password: 'adminPassword',
+      role: 'admin'
+    });
+    console.log('Initial admin account created');
+  }
+
+  const rootUser = await db.users.where('username').equals('root').first();
+  if (!rootUser) {
+    await db.users.add({
+      username: 'root',
+      email: 'root@example.com',
+      password: 'rootPassword',
+      role: 'root'
+    });
+    console.log('Initial root account created');
+  } else {
+    // 確保 root 用戶的角色是 'root'
+    await db.users.update(rootUser.id, { role: 'root' });
+    console.log('Root account role updated to root');
+  }
+}
+createInitialAccounts();
+
+function showSection(sectionId) {
+  document.querySelectorAll('div[id$="Section"]').forEach(section => section.classList.add('hidden'));
+  document.getElementById(sectionId).classList.remove('hidden');
+}
+
+function showRegisterForm() {
+  showSection('registerSection');
+}
+
+function showLoginForm() {
+  showSection('authSection');
+}
+
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+
+  try {
+    const user = await db.users.where('username').equals(username).first();
+    if (user && user.password === password) {
+      currentUser = user;
+      document.getElementById('loginStatus').textContent = '登入成功！';
+      document.getElementById('loginStatus').className = 'status success';
+      document.getElementById('logoutButton').classList.remove('hidden');
+
+      switch (user.role) {
+        case 'root':
+          showSection('rootSection');
+          updateRootView();
+          break;
+        case 'admin':
+          showSection('adminSection');
+          updateAdminView();
+          break;
+        case 'technician':
+          showSection('technicianSection');
+          updateTechnicianView();
+          break;
+        default:
+          showSection('userSection');
+          updateUserView();
+      }
+    } else {
+      throw new Error('用戶名或密碼錯誤');
+    }
+  } catch (error) {
+    document.getElementById('loginStatus').textContent = `登入失敗：${error.message}`;
+    document.getElementById('loginStatus').className = 'status error';
+  }
+  document.getElementById('loginStatus').style.display = 'block';
+});
+
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const username = document.getElementById('registerUsername').value;
+  const email = document.getElementById('registerEmail').value;
+  const password = document.getElementById('registerPassword').value;
+
+  try {
+    const existingUser = await db.users.where('username').equals(username).first();
+    if (existingUser) {
+      throw new Error('用戶名已存在');
+    }
+
+    await db.users.add({
+      username,
+      email,
+      password,
+      role: 'user'
+    });
+
+    document.getElementById('registerStatus').textContent = '註冊成功！請返回登入頁面。';
+    document.getElementById('registerStatus').className = 'status success';
+    this.reset();
+  } catch (error) {
+    document.getElementById('registerStatus').textContent = `註冊失敗：${error.message}`;
+    document.getElementById('registerStatus').className = 'status error';
+  }
+  document.getElementById('registerStatus').style.display = 'block';
+});
+
+document.getElementById('adminRegisterForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const username = document.getElementById('adminRegisterUsername').value;
+  const email = document.getElementById('adminRegisterEmail').value;
+  const password = document.getElementById('adminRegisterPassword').value;
+  const role = document.getElementById('newUserRole').value;
+
+  try {
+    const existingUser = await db.users.where('username').equals(username).first();
+    if (existingUser) {
+      throw new Error('用戶名已存在');
+    }
+
+    await db.users.add({
+      username,
+      email,
+      password,
+      role
+    });
+
+    document.getElementById('adminRegisterStatus').textContent = '註冊成功！';
+    document.getElementById('adminRegisterStatus').className = 'status success';
+    this.reset();
+    updateAdminView();
+  } catch (error) {
+    document.getElementById('adminRegisterStatus').textContent = `註冊失敗：${error.message}`;
+    document.getElementById('adminRegisterStatus').className = 'status error';
+  }
+  document.getElementById('adminRegisterStatus').style.display = 'block';
+});
+
+document.getElementById('repairForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData.entries());
+  data.userId = currentUser.id;
+  data.timestamp = new Date().toISOString();
+  data.status = '待處理';
+  
+  try {
+    await db.repairs.add(data);
+    document.getElementById('repairStatus').textContent = '報修成功！';
+    document.getElementById('repairStatus').className = 'status success';
+    this.reset();
+    updateUserView();
+  } catch (error) {
+    document.getElementById('repairStatus').textContent = `報修失敗：${error.message}`;
+    document.getElementById('repairStatus').className = 'status error';
+  }
+  
+  document.getElementById('repairStatus').style.display = 'block';
+});
+
+async function updateUserView() {
+  if (!currentUser) return;
+  
+  const repairList = document.getElementById('userRepairList');
+  repairList.innerHTML = '';
+  const repairs = await db.repairs.where('userId').equals(currentUser.id).toArray();
+  repairs.forEach((repair) => {
+    const repairItem = document.createElement('div');
+    repairItem.className = 'repair-item';
+    repairItem.innerHTML = `
+      <strong>部門：</strong> ${repair.department}<br>
+      <strong>位置：</strong> ${repair.location}<br>
+      <strong>問題類別：</strong> ${repair.category}<br>
+      <strong>問題描述：</strong> ${repair.description}<br>
+      <strong>狀態：</strong> ${repair.status}
+    `;
+    repairList.appendChild(repairItem);
+  });
+}
+
+async function updateTechnicianView() {
+  if (!currentUser || currentUser.role !== 'technician') return;
+  
+  const repairList = document.getElementById('technicianRepairList');
+  repairList.innerHTML = '';
+  const repairs = await db.repairs.where('status').equals('待處理').or('status').equals('處理中').toArray();
+  repairs.forEach((repair) => {
+    const repairItem = document.createElement('div');
+    repairItem.className = 'repair-item';
+    repairItem.innerHTML = `
+      <strong>部門：</strong> ${repair.department}<br>
+      <strong>位置：</strong> ${repair.location}<br>
+      <strong>問題類別：</strong> ${repair.category}<br>
+      <strong>問題描述：</strong> ${repair.description}<br>
+      <strong>狀態：</strong> ${repair.status}<br>
+      <button onclick="updateRepairStatus(${repair.id}, '處理中')">開始處理</button>
+      <button onclick="updateRepairStatus(${repair.id}, '已完成')">標記為完成</button>
+    `;
+    repairList.appendChild(repairItem);
+  });
+}
+
+async function updateAdminView() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  
+  updateUserList();
+  updateAdminRepairList();
+}
+
+async function updateRootView() {
+  if (!currentUser || currentUser.role !== 'root') return;
+
+  await updateRootUserList();
+  await updateRootRepairList();
+}
+
+async function updateUserList() {
+  const userList = document.getElementById('userList');
+  userList.innerHTML = '';
+  const users = await db.users.toArray();
+  users.forEach((user) => {
+    const userItem = document.createElement('div');
+    userItem.className = 'user-item';
+    userItem.innerHTML = `
+      <strong>用戶名：</strong> ${user.username}<br>
+      <strong>電子郵件：</strong> ${user.email}<br>
+      <strong>角色：</strong> ${user.role}<br>
+      <button onclick="changeUserRole(${user.id})">更改角色</button>
+      <button onclick="deleteUser(${user.id})">刪除用戶</button>
+    `;
+    userList.appendChild(userItem);
+  });
+}
+
+async function updateAdminRepairList() {
+  const repairList = document.getElementById('adminRepairList');
+  repairList.innerHTML = '';
+  const repairs = await db.repairs.toArray();
+  repairs.forEach((repair) => {
+    const repairItem = document.createElement('div');
+    repairItem.className = 'repair-item';
+    repairItem.innerHTML = `
+      <strong>部門：</strong> ${repair.department}<br>
+      <strong>位置：</strong> ${repair.location}<br>
+      <strong>問題類別：</strong> ${repair.category}<br>
+      <strong>問題描述：</strong> ${repair.description}<br>
+      <strong>狀態：</strong> ${repair.status}<br>
+      <button onclick="deleteRepair(${repair.id})">刪除報修</button>
+    `;
+    repairList.appendChild(repairItem);
+  });
+}
+
+async function updateRootUserList() {
+  const rootUserList = document.getElementById('rootUserList');
+  rootUserList.innerHTML = '';
+  const users = await db.users.toArray();
+  users.forEach((user) => {
+    const userItem = document.createElement('div');
+    userItem.className = 'user-item';
+    userItem.innerHTML = `
+      <strong>用戶名：</strong> ${user.username}<br>
+      <strong>電子郵件：</strong> ${user.email}<br>
+      <strong>角色：</strong> ${user.role}<br>
+      <button onclick="changeUserRole(${user.id})">更改角色</button>
+      <button onclick="deleteUser(${user.id})">刪除用戶</button>
+    `;
+    rootUserList.appendChild(userItem);
+  });
+}
+
+async function updateRootRepairList() {
+  const rootRepairList = document.getElementById('rootRepairList');
+  rootRepairList.innerHTML = '';
+  const repairs = await db.repairs.toArray();
+  repairs.forEach((repair) => {
+    const repairItem = document.createElement('div');
+    repairItem.className = 'repair-item';
+    repairItem.innerHTML = `
+      <strong>用戶 ID：</strong> ${repair.userId}<br>
+      <strong>部門：</strong> ${repair.department}<br>
+      <strong>位置：</strong> ${repair.location}<br>
+      <strong>問題類別：</strong> ${repair.category}<br>
+      <strong>問題描述：</strong> ${repair.description}<br>
+      <strong>狀態：</strong> ${repair.status}<br>
+      <strong>時間戳：</strong> ${repair.timestamp}<br>
+      <strong>技術人員 ID：</strong> ${repair.technicianId || '未分配'}<br>
+      <button onclick="deleteRepair(${repair.id})">刪除報修</button>
+    `;
+    rootRepairList.appendChild(repairItem);
+  });
+}
+
+async function updateRepairStatus(repairId, newStatus) {
+  await db.repairs.update(repairId, { status: newStatus, technicianId: currentUser.id });
+  updateTechnicianView();
+}
+
+async function changeUserRole(userId) {
+  const user = await db.users.get(userId);
+  let newRole = prompt(`請輸入 ${user.username} 的新角色 (user/technician/admin):`, user.role);
+  if (newRole && ['user', 'technician', 'admin'].includes(newRole)) {
+    if (user.username === 'root' && newRole !== 'root') {
+      alert('不能更改 root 帳號的角色！');
+      return;
+    }
+    await db.users.update(userId, { role: newRole });
+    if (currentUser.role === 'root') {
+      updateRootView();
+    } else {
+      updateAdminView();
+    }
+  } else {
+    alert('無效的角色，請重試。');
+  }
+}
+
+async function deleteUser(userId) {
+  const user = await db.users.get(userId);
+  if (user.username === 'root') {
+    alert('不能刪除 root 帳號！');
+    return;
+  }
+  if (confirm('確定要刪除此用戶嗎？')) {
+    await db.users.delete(userId);
+    await db.repairs.where('userId').equals(userId).delete();
+    if (currentUser.role === 'root') {
+      updateRootView();
+    } else {
+      updateAdminView();
+    }
+  }
+}
+
+async function deleteRepair(repairId) {
+  if (confirm('確定要刪除此報修嗎？')) {
+    await db.repairs.delete(repairId);
+    if (currentUser.role === 'root') {
+      updateRootView();
+    } else {
+      updateAdminView();
+    }
+  }
+}
+
+function logout() {
+  currentUser = null;
+  showSection('authSection');
+  document.getElementById('logoutButton').classList.add('hidden');
+  document.getElementById('loginForm').reset();
+  document.getElementById('loginStatus').style.display = 'none';
+}
+
+// 初始化頁面
+showLoginForm();
+document.getElementById('logoutButton').classList.add('hidden');
+</script>
+
+</body></html>
